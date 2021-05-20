@@ -5,7 +5,7 @@
 __Locations of verified cameras in 10 large U.S. cities for the period 2016–2020. Densely clustered areas of points indicate regions with high camera density in each city. Camera density varies widely between neighborhoods. Note: Scale varies
 between cities.__
 
-This is the code base of the [Surveillance Camera](https://arxiv.org/abs/2105.01764) paper:
+This is the code base of our [Surveilling Surveillance](https://arxiv.org/abs/2105.01764) paper:
 ```
 @article{sheng2021surveilling,
   title={Surveilling Surveillance: Estimating the Prevalence of Surveillance Cameras with Street View Data},
