@@ -1,5 +1,5 @@
 # Surveilling Surveillance: Estimating the Prevalence of Surveillance Cameras with Street View Data
-### [Project page](https://stanford-policylab.github.io/surveillance/) |   [Paper](https://arxiv.org/abs/2105.01764)
+### [Project page](https://policylab.stanford.edu/surveillance/) |   [Paper](https://arxiv.org/abs/2105.01764)
 
 ![detections](.github/image/detections.png)
 __Locations of verified cameras in 10 large U.S. cities for the period 2016–2020. Densely clustered areas of points indicate regions with high camera density in each city. Camera density varies widely between neighborhoods. Note: Scale varies
