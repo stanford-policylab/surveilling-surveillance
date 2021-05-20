@@ -1,0 +1,280 @@
+---
+title: "results"
+author: "Keniel Yao"
+date: "4/26/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load-functions}
+library(tidyverse)
+library(sf)
+library(glue)
+library(tidycensus)
+library(broom)
+
+source(here::here('analysis', 'figures.R'))
+
+theme_set(theme_bw(base_size = 14))
+```
+
+
+# Load data
+
+```{r data}
+df_pre <- read_csv(here::here("data", "cameras_2011-2015.csv")) %>%
+  mutate(period = "2011-2015")
+df_post <- read_csv(here::here("data", "cameras_2015-2021.csv")) %>%
+  mutate(period = "2015-2021")
+city_data <- read_csv(here::here("data", "city_metadata.csv"))
+
+recall <- 0.63
+```
+
+# Figures
+
+## Table 1: City metadata
+
+```{r metadata}
+city_data %>%
+  arrange(desc(type), desc(road_network_length_km)) %>%
+  transmute(
+    City = case_when(
+      city == "New York" ~ "New York City",
+      city == "Washington" ~ "Washington, D.C.",
+      TRUE ~ city
+    ),
+    Population = formatC(round(population_census2010, -3), format = "d", big.mark=","),
+    `Area (sq. km)` = formatC(area_sqkm_census2010, format = "d", big.mark=","),
+    `Road length (km)` = formatC(road_network_length_km, format = "d", big.mark=",")
+  ) 
+```
+
+## Figure 5: Spatial distribution of sampled points
+
+```{r sampled-points}
+generate_sampled_point_map(df_post, "San Francisco")
+generate_sampled_point_map(df_post, "Chicago")
+generate_sampled_point_map(df_post, "New York")
+```
+
+## Table 3: Detection count, density and total camera estimates
+
+```{r main-table}
+bind_rows(
+  df_pre,
+  df_post
+) %>%
+  group_by(city, period) %>%
+  summarize(
+      n_pano = n(),
+      n_detection = sum(camera_count)
+    ) %>%
+  ungroup() %>%
+  estimate_detection_metrics(recall = recall) %>%
+  transmute(
+    rank = if_else(period == "2015-2021", est_detections_per_km, 0),
+    city = fct_reorder(city, - rank),
+    type,
+    period = if_else(period == "2015-2021", "2016-2020", period),
+    road_network_length_km = formatC(road_network_length_km, format = "d", big.mark=","),
+    m_per_pano = round(m_per_pano, 0),
+    n_detection,
+    est_detections_per_km = round(est_detections_per_km, 2),
+    se_detections_per_km = glue("({ round(se_detections_per_km, 2) })"), 
+    est_detections = formatC(round(est_detections, -2), format = "d", big.mark=","),
+    se_detections = glue('({ formatC(round(se_detections, -2), format = "d", big.mark=",") })')
+  ) %>%
+  pivot_wider(
+    id_cols = c(city, type, road_network_length_km, m_per_pano),
+    names_from = period,
+    values_from = c(n_detection, est_detections_per_km, se_detections_per_km, est_detections, se_detections)
+  ) %>%
+  arrange(desc(type), city) %>%
+  mutate(
+    across(ends_with("2011-2015"), ~ str_replace_na(.x, "-")),
+    city = as.character(city)
+  ) %>%
+  select(
+    city, road_network_length_km, m_per_pano,
+    `n_detection_2011-2015`, `n_detection_2016-2020`,
+    `est_detections_per_km_2011-2015`, `se_detections_per_km_2011-2015`,
+    `est_detections_per_km_2016-2020`, `se_detections_per_km_2016-2020`,
+    `est_detections_2011-2015`, `se_detections_2011-2015`,
+    `est_detections_2016-2020`, `se_detections_2016-2020`
+  ) 
+```
+
+
+## Figure 9: Maps of detected points
+
+```{r detected-points}
+generate_detected_point_map(df_post, "San Francisco") 
+generate_detected_point_map(df_post, "Chicago") 
+generate_detected_point_map(df_post, "New York") 
+```
+
+## Figure 10: Pre-post estimated camera density
+
+```{r density-plot}
+df_post %>%
+  group_by(city, period) %>%
+  summarize(
+      n_pano = n(),
+      n_detection = sum(camera_count)
+    ) %>%
+  ungroup() %>%
+  estimate_detection_metrics(recall = recall) %>%
+  mutate(
+    city = case_when(
+      city == "New York" ~ "New York City",
+      city == "Washington" ~ "Washington, D.C.",
+      T ~ city
+    ),
+    type = factor(type, c("Global", "US")),
+    city = fct_reorder(city, est_detections_per_km)
+  ) %>%
+  plot_camera_density(legend = FALSE)
+```
+
+## Figure 11: Zone identification rate
+
+```{r annotate-race-data}
+us_cities <- city_data %>%
+  filter(type == "US") %>%
+  pull(city)
+
+df_post_w_race <- us_cities %>%
+  map_dfr(~ annotate_points_with_census(df_post, .x, "race")) %>%
+  st_drop_geometry() %>%
+  mutate(
+    city = case_when(
+      city == "New York" ~ "New York City",
+      city == "Washington" ~ "Washington D.C.",
+      TRUE ~ city
+    ),
+    city = factor(
+      city, 
+      c("New York City", "San Francisco", "Boston", "Chicago", "Philadelphia", 
+        "Washington D.C.", "Los Angeles", "Baltimore", "Seattle", "Milwaukee")
+    ),
+    zone_type = str_to_title(zone_type),
+    zone_type = factor(
+      zone_type, 
+      c("Public", "Residential", "Industrial", "Commercial", "Mixed"), 
+      exclude = NULL
+    ),
+    zone_type = fct_explicit_na(zone_type, na_level = "Unknown"),
+    camera_count = as.integer(camera_count)
+  )
+```
+
+
+```{r zone-all}
+df_post_w_race %>%
+  filter(zone_type != "Unknown") %>%
+  group_by(zone_type) %>%
+  summarize(
+    total = n(),
+    total_identified = sum(camera_count, na.rm=T),
+    perc_detected = sum(total_identified) / total
+  ) %>% 
+  mutate(se = sqrt(perc_detected * (1 - perc_detected) / total)) %>%
+  ungroup() %>%
+  mutate(
+    zone_type = fct_relevel(
+      zone_type, 
+      c("Mixed", "Commercial", "Industrial", "Public", "Residential", "Unknown")
+    ),
+    zone_type = fct_rev(zone_type)
+  ) %>%
+  ggplot(aes(x = zone_type, y = perc_detected)) + 
+  geom_point() +
+  geom_pointrange(aes(
+    ymin = perc_detected - 1.96 * se, 
+    ymax = perc_detected + 1.96 * se
+  )) +
+  scale_x_discrete(name = "") +
+  scale_y_continuous(
+    name = "Identification rate", 
+    position = "right",
+    labels = scales::percent_format(accuracy = 0.01),
+    expand = expansion(mult = c(0, 0.1)),
+    limits = c(0, NA)
+  ) +
+  coord_flip() +
+  theme(
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    axis.text = element_text(family = "Helvetica", color = "black"), 
+    axis.title.x = element_text(family = "Helvetica", color = "black"), 
+    axis.line = element_line(size = 0.5, color = "black"),
+    axis.ticks = element_line(size = 0.5, color = "black")
+  ) 
+
+```
+
+## Figure 12: Race identification rate
+
+```{r race-all}
+df_post_w_race %>%
+  ggplot(aes(x = percentage_minority, y = camera_count)) +
+  geom_smooth(
+    method = "lm",
+    formula = y ~ poly(x, degree = 2),
+    se = TRUE
+  ) +
+  scale_x_continuous(
+    name = "Minority share of population (census block group)", 
+    expand = expansion(mult = c(0, 0.05)),
+    labels = scales::percent_format(accuracy = 1)
+  ) +
+  scale_y_continuous(
+    name = "Identification rate",  
+    limits = c(0, NA),
+    oob = scales::squish,
+    expand = expansion(mult = c(0, 0.1)),
+    labels = scales::percent_format(accuracy = 0.1)
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    axis.text = element_text(family = "Helvetica", color = "black"), 
+    axis.title = element_text(family = "Helvetica", color = "black"), 
+    axis.line = element_line(size = 0.5, color = "black"),
+    axis.ticks.x = element_line(size = 0.5, color = "black"),
+    axis.ticks.y = element_line(size = 0.5, color = "black")
+  ) 
+```
+
+## Table 4: Regression output
+
+```{r regression-model}
+# reference level:
+# - city: None (interceptless)
+# - zone_type: residential
+model_lm_poly <- df_post_w_race %>%
+  filter(zone_type != "Unknown") %>%
+  mutate(
+    detected = if_else(camera_count > 0, 1, 0),
+    zone_type = fct_relevel(
+      zone_type, 
+      c("Residential", "Public", "Commercial", "Industrial", "Mixed", "Unknown")
+    )
+  ) %>%
+  lm(detected ~ city-1 + zone_type + percentage_minority + I(percentage_minority^2), data = .)
+
+tidy(model_lm_poly) %>%
+  filter(!str_detect(term, "^city")) %>%
+  transmute(
+    term,
+    estimate = formatC(estimate, format = "f"),
+    std.error = formatC(std.error, format = "f")
+  ) 
+```
+
+
+

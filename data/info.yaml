@@ -1,0 +1,22 @@
+author: Hao
+class_names:
+- Directed Camera
+- Dome Camera
+date: 2021-04-06
+description: Camera detection dataset
+name: camera-detection
+sources:
+- channels: null
+  date: null
+  height: 640
+  name: gsv
+  resolution: ''
+  width: 640
+task:
+- object detection
+version:
+  description: Camera detection dataset
+  major: 1
+  minor: 0
+  patch: 0
+  version_str: 1.0.0

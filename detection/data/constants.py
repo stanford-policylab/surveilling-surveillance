@@ -1,0 +1,1 @@
+ANNOTATION_COLUMN = "annotations"

@@ -1,0 +1,17 @@
+pytorch-lightning==1.1.4
+test-tube==0.7.1
+numpy==1.17.2
+tqdm>=4.36.1
+pretrainedmodels==0.7.4
+Pillow==6.2.0
+fire==0.2.1
+tensorboardX==1.9
+streamlit==0.53.0
+albumentations==0.4.6
+imgaug==0.4.0
+pytorch-ignite
+scikit-learn==0.23.2
+seaborn==0.10.1
+segmentation-models-pytorch
+torch==1.8.1+cu102 
+torchvision==0.9.1+cu102 
