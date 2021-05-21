@@ -10,8 +10,7 @@ This is the code base of our [Surveilling Surveillance](https://arxiv.org/abs/21
 @article{sheng2021surveilling,
   title={Surveilling Surveillance: Estimating the Prevalence of Surveillance Cameras with Street View Data},
   author={Sheng, Hao and Yao, Keniel and Goel, Sharad},
-  journal={arXiv e-prints},
-  pages={arXiv--2105},
+  journal={Artificial Intelligence, Ethics, and Society},
   year={2021}
 }
 ```
